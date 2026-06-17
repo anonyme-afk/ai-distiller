@@ -36,46 +36,47 @@ def chat_interface(message, history):
     return response
 
 # Construction de l'interface Gradio
-with gr.Blocks(title="AI-Distiller Dashboard", theme=gr.themes.Soft()) as demo:
-    gr.Markdown("# 🚀 AI-Distiller Dashboard")
-    gr.Markdown("Plateforme de création d'assistants IA spécialisés via distillation.")
+with gr.Blocks(title="AI-Distiller Paroxysm Dashboard", theme=gr.themes.Soft()) as demo:
+    gr.Markdown("# 🚀 AI-Distiller Dashboard (Paroxysm Edition)")
+    gr.Markdown("Plateforme SOTA de création d'agents: **Constitutional AI, LLM-as-a-Judge, DPO & GGUF Export**.")
     
     with gr.Tabs():
         # Tab 1: Configuration
-        with gr.TabItem("⚙️ Configuration"):
-            gr.Markdown("### Configurer une nouvelle distillation")
+        with gr.TabItem("⚙️ DPO Generation & Training"):
+            gr.Markdown("### Configurer la distillation asynchrone")
             with gr.Row():
                 with gr.Column():
                     domain_input = gr.Textbox(label="Domaine", placeholder="Ex: support_client, droit_francais...")
                     teacher_input = gr.Dropdown(
-                        choices=["claude-3-5-sonnet-20241022", "gpt-4o", "llama-3-70b"], 
-                        label="Modèle Teacher", 
+                        choices=["claude-3-5-sonnet-20241022", "gpt-4o"], 
+                        label="Modèle Teacher (Juge & Générateur)", 
                         value="claude-3-5-sonnet-20241022"
                     )
-                    orchestration_input = gr.Dropdown(
-                        choices=["langgraph", "crewai", "none"],
-                        label="Orchestration",
-                        value="crewai"
+                    method_input = gr.Dropdown(
+                        choices=["DPO (Direct Preference Optimization)", "SFT (Supervised Fine-Tuning)"],
+                        label="Méthode d'entraînement",
+                        value="DPO (Direct Preference Optimization)"
                     )
-                    examples_slider = gr.Slider(minimum=1000, maximum=100000, step=1000, value=10000, label="Nombre d'exemples")
+                    examples_slider = gr.Slider(minimum=100, maximum=100000, step=100, value=1000, label="Nombre d'exemples (Async Batch)")
+                    cot_checkbox = gr.Checkbox(label="Inclure <thinking> (Chain of Thought)", value=True)
                 
                 with gr.Column():
-                    train_btn = gr.Button("Démarrer la Distillation", variant="primary")
+                    train_btn = gr.Button("Lancer le Pipeline Complet", variant="primary")
                     status_output = gr.Textbox(label="Statut", interactive=False)
                     
             train_btn.click(launch_training, inputs=[domain_input, teacher_input], outputs=status_output)
 
         # Tab 2: Monitoring
-        with gr.TabItem("📈 Monitoring"):
-            gr.Markdown("### Suivi de l'entraînement en temps réel")
+        with gr.TabItem("📈 Monitoring (LLM Judge)"):
+            gr.Markdown("### Suivi du loss DPO et Benchmarks")
             refresh_btn = gr.Button("Actualiser les métriques")
             metrics_plot = gr.Plot()
             refresh_btn.click(generate_mock_metrics, inputs=[], outputs=metrics_plot)
             demo.load(generate_mock_metrics, inputs=[], outputs=metrics_plot)
 
         # Tab 3: Chat & Test
-        with gr.TabItem("💬 Tester le Modèle"):
-            gr.Markdown("### Discuter avec le modèle distillé")
+        with gr.TabItem("💬 Tester l'Agent (GGUF)"):
+            gr.Markdown("### Discuter avec l'agent distillé (inference locale Edge)")
             gr.ChatInterface(chat_interface)
 
 if __name__ == "__main__":

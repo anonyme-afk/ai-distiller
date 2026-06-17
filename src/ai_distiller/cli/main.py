@@ -26,9 +26,9 @@ def wizard():
     run_wizard()
 
 @app.command()
-def generate(examples: int = typer.Option(10, help="Number of examples to generate"), domain: str = typer.Option("support_client", help="Domain config to use")):
-    """Generate training data."""
-    console.print(f"[bold blue]Generating {examples} examples for {domain}...[/bold blue]")
+def generate(examples: int = typer.Option(5, help="Number of examples to generate"), domain: str = typer.Option("support_client", help="Domain config to use"), with_cot: bool = typer.Option(False, help="Include Chain of Thought")):
+    """Generate training data (DPO format) asynchronously."""
+    console.print(f"[bold blue]Generating {examples} DPO examples for {domain} (Async Mode)...[/bold blue]")
     from ai_distiller.distillation.teacher import TeacherConnector
     from ai_distiller.distillation.data_generator import DataGenerator
     import json
@@ -37,18 +37,18 @@ def generate(examples: int = typer.Option(10, help="Number of examples to genera
     try:
         teacher = TeacherConnector()
         generator = DataGenerator(teacher)
-        dataset = generator.generate(domain=domain, num_examples=examples)
+        dataset = generator.generate(domain=domain, num_examples=examples, with_cot=with_cot)
         
         os.makedirs("outputs", exist_ok=True)
-        with open("outputs/generated_dataset.json", "w") as f:
+        with open("outputs/dpo_dataset.json", "w") as f:
             json.dump(dataset, f, indent=2)
-        console.print("[bold green]Generation complete. Saved to outputs/generated_dataset.json[/bold green]")
+        console.print("[bold green]Generation complete. Saved to outputs/dpo_dataset.json[/bold green]")
     except Exception as e:
         console.print(f"[bold red]Error during generation:[/bold red] {str(e)}")
         raise typer.Exit(code=1)
 
 @app.command()
-def clean(input_file: str = typer.Option("outputs/generated_dataset.json", help="File to clean")):
+def clean(input_file: str = typer.Option("outputs/dpo_dataset.json", help="File to clean")):
     """Clean generated data."""
     console.print(f"[bold blue]Cleaning dataset {input_file}...[/bold blue]")
     from ai_distiller.distillation.cleaner import DataCleaner
