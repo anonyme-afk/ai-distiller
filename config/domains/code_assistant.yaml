@@ -1,0 +1,36 @@
+domain: "Assistant de developpement logiciel"
+description: "Assistant specialise en aide au code (planification, ecriture, tests, debug)"
+
+teacher:
+  model: "claude-3-5-sonnet-20241022"
+  temperature: 0.4
+
+training:
+  num_examples: 40000
+  epochs: 3
+  batch_size: 4
+  learning_rate: 2e-5
+
+capabilities:
+  thinking: true
+  web_search: false
+  rag: false
+  tools:
+    - code_sandbox
+    - calculator
+
+orchestration:
+  type: "crewai"
+  agents:
+    - role: "Planner"
+      goal: "Decomposer la demande en etapes de developpement"
+    - role: "Coder"
+      goal: "Ecrire le code pour chaque etape"
+      tools: ["code_sandbox"]
+    - role: "Tester"
+      goal: "Ecrire et executer les tests"
+      tools: ["code_sandbox"]
+    - role: "Debugger"
+      goal: "Corriger les echecs de tests"
+
+data_sources: []

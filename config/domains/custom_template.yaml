@@ -1,0 +1,24 @@
+# Copy this file to create a new domain, e.g. config/domains/my_domain.yaml
+domain: "Nom de votre domaine"
+description: "Description courte de ce que fait l'assistant"
+
+teacher:
+  model: "claude-3-5-sonnet-20241022"
+  temperature: 0.7
+
+training:
+  num_examples: 10000
+  epochs: 3
+  batch_size: 4
+  learning_rate: 2e-5
+
+capabilities:
+  thinking: false
+  web_search: false
+  rag: false
+  tools: []
+
+orchestration:
+  type: "none"   # none | langgraph | crewai
+
+data_sources: []

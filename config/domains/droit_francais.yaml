@@ -1,0 +1,33 @@
+domain: "Assistant en droit francais"
+description: "Assistant specialise en droit francais (information generale, pas un avis juridique)"
+
+teacher:
+  model: "claude-3-5-sonnet-20241022"
+  temperature: 0.3
+
+training:
+  num_examples: 30000
+  epochs: 3
+  batch_size: 4
+  learning_rate: 2e-5
+
+capabilities:
+  thinking: true
+  web_search: true
+  rag: true
+  tools: []
+
+orchestration:
+  type: "langgraph"
+  graph_template: "search_verify_loop"
+
+data_sources:
+  - type: "documents"
+    path: "./knowledge_base/code_civil_extraits.pdf"
+  - type: "documents"
+    path: "./knowledge_base/jurisprudence_notes.md"
+
+disclaimer: >
+  Ce systeme fournit des informations generales sur le droit francais et ne
+  remplace pas la consultation d'un avocat. Toute reponse generee doit etre
+  verifiee avant d'etre utilisee dans un contexte reel.

@@ -1,0 +1,42 @@
+domain: "Support client e-commerce"
+description: "Assistant spécialisé en support client pour e-commerce"
+
+teacher:
+  model: "claude-3-5-sonnet"
+  temperature: 0.7
+
+training:
+  num_examples: 50000
+  epochs: 3
+  batch_size: 4
+  learning_rate: 2e-5
+
+capabilities:
+  thinking: true
+  web_search: false
+  rag: true
+  tools:
+    - sentiment_analysis
+    - order_lookup
+
+orchestration:
+  type: "crewai"
+  agents:
+    - role: "Analyzer"
+      goal: "Comprendre et classifier la demande"
+      tools: ["sentiment_analysis"]
+    - role: "Researcher"
+      goal: "Trouver la solution"
+      tools: ["rag_search", "order_lookup"]
+    - role: "Writer"
+      goal: "Rédiger une réponse empathique"
+      tools: []
+    - role: "Validator"
+      goal: "Vérifier qualité"
+      model: "teacher"
+
+data_sources:
+  - type: "documents"
+    path: "./knowledge_base/faq.pdf"
+  - type: "documents"
+    path: "./knowledge_base/policies.md"
