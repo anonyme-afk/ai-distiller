@@ -1,0 +1,13 @@
+site_name: AI-Distiller
+site_description: Create specialized AI assistants via model distillation
+theme:
+  name: material
+  palette:
+    scheme: slate
+    primary: deep purple
+
+nav:
+  - Home: index.md
+  - Getting Started: getting_started.md
+  - Architecture: architecture.md
+  - API Reference: api_reference.md
