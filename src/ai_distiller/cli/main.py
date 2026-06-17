@@ -12,7 +12,12 @@ console = Console()
 def init(domain: str = typer.Option("general", help="Domain for the new project")):
     """Initialize a new distillation project."""
     console.print(f"[bold green]Initializing new project for domain: {domain}[/bold green]")
-    # Stub
+    import yaml
+    from pathlib import Path
+    Path("config/domains").mkdir(parents=True, exist_ok=True)
+    with open(f"config/domains/{domain}.yaml", "w") as f:
+        yaml.dump({"domain": domain, "teacher": {"model": "claude-3-5-sonnet-20241022"}}, f)
+    console.print("[bold green]Project initialized.[/bold green]")
 
 @app.command()
 def wizard():
@@ -21,22 +26,51 @@ def wizard():
     run_wizard()
 
 @app.command()
-def generate(examples: int = typer.Option(1000, help="Number of examples to generate")):
+def generate(examples: int = typer.Option(10, help="Number of examples to generate"), domain: str = typer.Option("support_client", help="Domain config to use")):
     """Generate training data."""
-    console.print(f"[bold blue]Generating {examples} examples...[/bold blue]")
-    # Stub
+    console.print(f"[bold blue]Generating {examples} examples for {domain}...[/bold blue]")
+    from ai_distiller.distillation.teacher import TeacherConnector
+    from ai_distiller.distillation.data_generator import DataGenerator
+    import json
+    
+    teacher = TeacherConnector()
+    generator = DataGenerator(teacher)
+    dataset = generator.generate(domain=domain, num_examples=examples)
+    
+    with open("outputs/generated_dataset.json", "w") as f:
+        json.dump(dataset, f, indent=2)
+    console.print("[bold green]Generation complete. Saved to outputs/generated_dataset.json[/bold green]")
 
 @app.command()
-def clean():
+def clean(input_file: str = typer.Option("outputs/generated_dataset.json", help="File to clean")):
     """Clean generated data."""
-    console.print("[bold blue]Cleaning dataset...[/bold blue]")
-    # Stub
+    console.print(f"[bold blue]Cleaning dataset {input_file}...[/bold blue]")
+    from ai_distiller.distillation.cleaner import DataCleaner
+    import json
+    
+    with open(input_file, "r") as f:
+        dataset = json.load(f)
+        
+    cleaner = DataCleaner()
+    cleaned = cleaner.clean(dataset)
+    
+    with open("outputs/cleaned_dataset.json", "w") as f:
+        json.dump(cleaned, f, indent=2)
+    console.print("[bold green]Cleaning complete. Saved to outputs/cleaned_dataset.json[/bold green]")
 
 @app.command()
-def train():
+def train(input_file: str = typer.Option("outputs/cleaned_dataset.json", help="File to train on")):
     """Start fine-tuning process."""
-    console.print("[bold magenta]Starting distillation/fine-tuning process...[/bold magenta]")
-    # Stub
+    console.print(f"[bold magenta]Starting distillation process using {input_file}...[/bold magenta]")
+    from ai_distiller.distillation.trainer import Trainer
+    import json
+    
+    with open(input_file, "r") as f:
+        dataset = json.load(f)
+        
+    trainer = Trainer()
+    result = trainer.train(dataset)
+    console.print(f"[bold green]Training output saved at {result['model_path']}[/bold green]")
 
 @app.command()
 def serve():
@@ -44,12 +78,6 @@ def serve():
     import uvicorn
     console.print("[bold green]Starting API Server on port 8000...[/bold green]")
     uvicorn.run("ai_distiller.api.server:app", host="0.0.0.0", port=8000, reload=True)
-
-@app.command()
-def test():
-    """Test the generated model."""
-    console.print("[bold cyan]Testing model...[/bold cyan]")
-    # Stub
 
 if __name__ == "__main__":
     app()
