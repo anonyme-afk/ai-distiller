@@ -1,20 +1,63 @@
 """
 teacher.py
 Connectors for "teacher" models used as the knowledge source for distillation.
+Supports sync/async generation, caching, rate-limiting, and LLM-as-a-Judge.
+
+Integrates with:
+- Anthropic (Claude): https://github.com/anthropics/anthropic-sdk-python
+- OpenAI (GPT): https://github.com/openai/openai-python
+- LiteLLM (unified async): https://github.com/BerriAI/litellm
+- Ollama (local): https://github.com/ollama/ollama
 """
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging
+import time
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Iterator, Optional
 
 try:
     import litellm
 except ImportError:
     litellm = None
 
+try:
+    import anthropic
+except ImportError:
+    anthropic = None
+
+try:
+    import openai
+except ImportError:
+    openai = None
+
+import requests
+
 logger = logging.getLogger(__name__)
 
+
+class RateLimiter:
+    """Very small token-bucket rate limiter."""
+
+    def __init__(self, requests_per_minute: int = 50):
+        self.capacity = max(1, requests_per_minute)
+        self.tokens = float(self.capacity)
+        self.updated_at = time.monotonic()
+
+    def acquire(self) -> None:
+        now = time.monotonic()
+        elapsed = now - self.updated_at
+        refill = elapsed * (self.capacity / 60.0)
+        self.tokens = min(float(self.capacity), self.tokens + refill)
+        self.updated_at = now
+        if self.tokens < 1:
+            wait = (1 - self.tokens) * (60.0 / self.capacity)
+            logger.debug("Rate limit reached, sleeping %.2fs", wait)
+            time.sleep(wait)
             self.tokens = 0.0
         else:
             self.tokens -= 1
@@ -187,25 +230,25 @@ class TeacherConnector:
         else:
             yield self.complete(prompt, system=system, **kwargs)
 
+    # ── Async methods (Phase 4: Paroxysm) ──────────────────────────
+
     async def generate_async(self, prompt: str, system: Optional[str] = None, **kwargs: Any) -> str:
-        """Asynchronous generation using LiteLLM."""
+        """Asynchronous generation using LiteLLM (unified provider)."""
         logger.debug(f"Async Request to {self.config.model}")
         if litellm is None:
-            import asyncio
             await asyncio.sleep(0.1)
-            return "Stub async response"
-            
+            return f"Stub async response for: {prompt[:30]}..."
+
         try:
-            import litellm
             messages = []
             if system:
                 messages.append({"role": "system", "content": system})
             messages.append({"role": "user", "content": prompt})
-            
+
             response = await litellm.acompletion(
                 model=f"{self.config.provider}/{self.config.model}",
                 messages=messages,
-                temperature=kwargs.get("temperature", self.config.temperature)
+                temperature=kwargs.get("temperature", self.config.temperature),
             )
             return response.choices[0].message.content
         except Exception as e:
@@ -214,7 +257,6 @@ class TeacherConnector:
 
     async def generate_n_async(self, prompt: str, n: int = 3, system: Optional[str] = None) -> list[str]:
         """Generate N diverse responses for rejection sampling."""
-        import asyncio
         tasks = [self.generate_async(prompt, system, temperature=0.9) for _ in range(n)]
         return await asyncio.gather(*tasks)
 
@@ -223,19 +265,25 @@ class TeacherConnector:
         LLM-as-a-Judge: Evaluate multiple responses and return (chosen, rejected).
         For DPO, we need the best response and one of the worst.
         """
-        judge_prompt = f"Prompt: {prompt}\n\nEvaluate the following responses and rank them based on clarity, accuracy, and harmlessness.\n"
+        judge_prompt = (
+            f"Prompt: {prompt}\n\n"
+            "Evaluate the following responses based on clarity, accuracy, and harmlessness.\n"
+        )
         for i, r in enumerate(responses):
-            judge_prompt += f"\nResponse {i+1}:\n{r}\n"
-        judge_prompt += "\nOutput ONLY the index of the best response followed by the index of the worst response, separated by a comma (e.g., '1, 3')."
-        
+            judge_prompt += f"\nResponse {i + 1}:\n{r}\n"
+        judge_prompt += (
+            "\nOutput ONLY the index of the best response followed by the index "
+            "of the worst response, separated by a comma (e.g., '1, 3')."
+        )
+
         judgment = await self.generate_async(judge_prompt)
-        
+
         try:
             best_idx_str, worst_idx_str = judgment.split(",")
             best_idx = int(best_idx_str.strip()) - 1
             worst_idx = int(worst_idx_str.strip()) - 1
-            chosen = responses[best_idx]
-            rejected = responses[worst_idx]
+            chosen = responses[max(0, min(best_idx, len(responses) - 1))]
+            rejected = responses[max(0, min(worst_idx, len(responses) - 1))]
             return chosen, rejected
         except Exception as e:
             logger.warning(f"Judge parsing failed: {e}. Defaulting to first/last.")
